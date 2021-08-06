@@ -1,0 +1,204 @@
+---
+title: "Toxicology 1"
+output: pdf_document
+---
+
+Students-Jaimin Oza(229984),Jay Savani(230443)
+
+                              Excercise Sheet 1
+
+a) For each gene, calculate the standard deviation of all three / six replicates corresponding to the same concentration. Visualize the results with one histogram
+per concentration
+
+1)
+```{r}
+library(ggplot2)
+load("C:/Users/Jaimin/Downloads/VPAData-Selected (1).Rda")
+conc <- c(rep(0, 6), rep(c(25, 150, 350, 450, 550, 800, 1000), each=3))
+sd.by.conc <- t(apply(selectionVPA, 1, function(x){
+tapply(x, conc, sd)
+}))
+
+sd.df <- data.frame(sd = c(sd.by.conc),
+conc = rep(unique(conc), each=10000))
+
+p.standard.dev <- ggplot(sd.df, aes(x=sd)) +
+geom_histogram(bins=150) +
+xlab("Standard Deviation of the replicates") +
+facet_wrap(.~conc) +
+ylab("Count")
+p.standard.dev
+
+```
+
+Explaination:
+The histograms of the standard deviations look similar across all concentrations. They are all unimodal with peaks at approximately 0.2. The histogram of the controls is a bit narrower, with maximal values observed at 0.7, while for the other histograms, maximal values of 1 or even higher are often observed.
+
+
+b) Perform the same analysis as in (a), but calculate the standard error instead
+of the standard deviation.
+
+```{r}
+
+sd.by.conc.SE <- t(apply(selectionVPA[,-(1:6)], 1, function(x){
+tapply(x, conc[-(1:6)], function(y) sd(y)/sqrt(3))
+}))
+
+
+sd.by.conc.SEcontrol <- apply(selectionVPA[,1:6], 1,function(y) sd(y)/sqrt(6))
+
+se.by.conc <- cbind(sd.by.conc.SEcontrol,sd.by.conc.SE)
+
+se.df <- data.frame(se = c(se.by.conc),
+conc = rep(unique(conc), each=10000))
+
+
+p.standard.error <- ggplot(se.df, aes(x=se)) +
+geom_histogram(bins=150) +
+facet_wrap(.~conc) +
+theme_bw() +
+xlab("Standard Error of the replicates") +
+ylab("Count")
+p.standard.error
+
+
+```
+
+The results are very similar to the results from a) with a compression of the histograms for all positive concentrations by the factor ≈  0.58. The histogram for the control is compressed more, by ≈ 0.41,
+and thus becomes even narrower.
+
+
+c) Determine the number of genes for which the mean gene expression value of all positive concentrations is larger than the mean gene expression value of the control. Additionally, determine the number of genes, for which the mean gene expression value of all positive concentrations is smaller than the mean gene expression value of the control.
+
+```{r}
+sd.by.conc.mean <- t(apply(selectionVPA, 1, function(x){
+tapply(x, conc, mean)
+}))
+
+strictly.larger <- apply(sd.by.conc.mean, 1, function(x){
+all(x[2:8] - x [1] > 0)
+})
+sum(strictly.larger)
+
+
+strictly.smaller <- apply(sd.by.conc.mean, 1, function(x){
+all(x[2:8] - x [1] < 0)
+})
+sum(strictly.smaller)
+
+
+```
+For 1501 out of all 10000 genes considered, the response values of all concentrations are strictly larger than
+that of the control, and for 1666 out of all 10000 genes considered, the response values are striclty smaller
+
+
+
+d) Determine the number of genes for which the mean gene expression is monotonically increasing, and the number of genes for which it is monotonically decreasing.
+
+
+```{r}
+
+monoton.increasing <- apply(sd.by.conc.mean, 1, function(x){
+all(c(x[8]>x[7], x[7]>x[6], x[6]>x[5], x[5]>x[4], x[4]>x[3], x[3]>x[2], x[2]>x[1]))
+})
+
+sum(monoton.increasing)
+
+monoton.decreasing <- apply(sd.by.conc.mean, 1, function(x){
+all(c(x[8]<x[7], x[7]<x[6], x[6]<x[5], x[5]<x[4], x[4]<x[3], x[3]<x[2], x[2]<x[1]))
+})
+
+sum(monoton.decreasing)
+
+
+```
+The number of genes with monotonically increasing expression values (388) and the number of genes with monotonically decreasing expression values (301) is similar and rather low.
+
+
+
+
+e) Plot the concentration-response profiles of the first ten genes in the dataset and of the first ten genes showing a monotonously increasing profile. Use the original data with 3 or 6 replicates per concentration and additionally indicate the mean value per concentration analogously the plots in to Chapter 1, slide 23 of the lecture.
+
+
+```{r}
+par(mfrow=c(3,2))
+ind.mon <- which(monoton.increasing == TRUE)[1:10]
+
+
+for(i in 1:10){
+  
+plot(conc, selectionVPA[i,], pch=22, col="grey",
+xlab="Concentration", ylab="Gene expression value",
+main = rownames(selectionVPA)[i])
+  
+points(unique(conc), sd.by.conc.mean[i,], pch=22, col="black")
+}
+
+
+for(i in ind.mon){
+plot(conc, selectionVPA[i,], pch=16, col="grey",
+xlab="Concentration", ylab="Gene expression value",
+main = rownames(selectionVPA)[i])
+points(unique(conc), sd.by.conc.mean[i,], pch=16, col="black")
+}
+
+
+```
+
+Two out of the first ten genes in the VPA dataset are also monotonically increasing. In the first ten genes of the entire datset, eight genes exhibit an (not necessarily monotonically) increasing profile and two genes exhibit a decreasing profile. The shape of most of the first ten genes seems to be sigmoidal.
+
+
+f) For each gene, calculate the difference between the mean gene expression value of each positive concentration and the mean gene expression value of the control.Visualize the results with one histogram per concentration.
+
+
+```{r}
+foldchanges <- t(apply(sd.by.conc.mean, 1, function(x){
+x[2:8] - x[1]
+}))
+
+
+foldchanges.df <- data.frame(
+FC = c(foldchanges[,1], foldchanges[,2], foldchanges[,3], foldchanges[,4],
+foldchanges[,5], foldchanges[,6], foldchanges[,7]),
+Conc = rep(unique(conc)[-1], each=10000)
+)
+p.foldchange <- ggplot(foldchanges.df, aes(x=FC)) +
+geom_histogram(bins=150) +
+facet_wrap(.~Conc, scales="free_y") +
+theme_bw() +
+xlab("Mean difference in gene expression to control") +
+ylab("Count")+
+xlim(-2, 2)
+
+p.foldchange
+
+
+```
+
+The majority of differences is in the range between -2 and 2. With increasing concentrations, the histograms become slightly broader, indicating larger differences in expression values (“fold changes”). Additionally, for concentrations 550, 800 and 1000, two peaks can be observed, indicating that here only very few foldchanges of approximately 0 are observed.
+
+
+g) For each gene, determine the largest of the differences from (f) when considering absolute values. Visualize the original differences (i.e. positive and negative
+values) using a histogram.
+
+```{r}
+max.foldchange <- data.frame(MF = apply(foldchanges, 1, function(x) x[which.max(abs(x))]))
+
+p.maxfoldchange <- ggplot(max.foldchange, aes(x=MF)) +
+geom_histogram(bins=150) +
+theme_bw() +
+xlab("Largest difference in mean expression value per gene") +
+ylab("Count")
+p.maxfoldchange
+
+
+```
+
+No values near zero are observed, so for all genes, at least one concentration exhibits a high difference in
+mean expression values (“fold change”). The peak for the negative fold changes is slightly higher than for the
+positive fold changes, but all in all, the distribution seems rather symmetric.
+
+
+
+
+
